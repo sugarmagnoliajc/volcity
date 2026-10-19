@@ -1,0 +1,8 @@
+milestones-JC.txt
+(I’m assuming this is for the entire project, which hasn’t been fully planned, and so I’m keeping the milestones vague/broad on purpose)
+40 points total:
+  + 15 - - Base Game Setup and Printing
+  + 5  - - Command Input
+  + 5  - - Game Saving / Loading
+  + 10 - - Game Logic (population)
+  + 5  - - Graphics (ASCII art at minimum)

@@ -1,0 +1,6 @@
+milestones-AA.txt
+40 points total:
+  + 15 - - Implementing Godot engine
+  + 5  - - Proper commenting
+  + 10 - - Learning Python
+  + 10  - - Debugging

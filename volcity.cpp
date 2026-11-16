@@ -12,6 +12,8 @@ This is the main user interface for Volcity. Includes class for the city.
 #include <string>
 #include <cstdio>
 #include <fstream>
+#include <algorithm>
+#include <cmath>
 
 using namespace std;
 
@@ -174,8 +176,22 @@ class city
         cout << "Loaded!\n";
       }
 
+	  // added primitive population growth
       void advance(int waitTime){
         day += waitTime;
+		int stable = 0;
+		
+		int growth = sqrt(totalPop) * (2 * mood);
+		if (growth > 0) {
+			if (mood > 0.2) {
+				mood = mood - (growth/(totalPop + growth));
+			}
+			else {
+				mood = mood + (growth/(totalPop + growth));
+			}
+		}
+
+		totalPop = totalPop + growth;
         /*
         algorithm to update population and such goes here, growth probably based on happiness
         population increases -> happiness decays without intervention -> eventually stablizes/decreases

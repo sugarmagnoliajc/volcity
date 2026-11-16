@@ -174,8 +174,8 @@ class city
         cout << "Loaded!\n";
       }
 
-      void advance(int){
-        day++;
+      void advance(int waitTime){
+        day += waitTime;
         /*
         algorithm to update population and such goes here, growth probably based on happiness
         population increases -> happiness decays without intervention -> eventually stablizes/decreases

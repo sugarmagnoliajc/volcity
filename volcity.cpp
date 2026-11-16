@@ -15,10 +15,6 @@ This is the main user interface for Volcity. Includes class for the city.
 
 using namespace std;
 
-/*
-complete transparency: I could not get header files to compile in VSCode
-the only problem with having it here is clutter, I think
-*/
 class city
 {
     // each cell of the board is a block
@@ -27,8 +23,9 @@ class city
       // default empty block, "." with population 0
       string display = ".";
       int pop = 0;
+    // bType is the internal building type so we aren't relying on the display string
+    // may change to a char and lookup on a map later
       string bType = "Empty";
-      // TODO: maybe like internal building type
     };
 
     public:
@@ -65,17 +62,28 @@ class city
       ~city()
       {
         size_t i, j;
-        for(i = 0; i < 3; i++){
-            for(j = 0; j < 3; j++) delete &board[i][j];
+        for(i = 0; i < board.size(); i++){
+            for(j = 0; j < board[i].size(); j++) delete &board[i][j];
         }
       }
 
-      // returns true if empty
-      bool empty() const
+      void reset()
       {
-        if(board.size() == 0) return true;
-        return false;
-      }        
+        size_t i, j;
+
+        /*
+        for(i = 0; i < board.size(); i++){
+            for(j = 0; j < board[i].size(); j++) delete &board[i][j];
+        } 
+        */
+
+        board.resize(0);
+        totalPop = 1;          
+        cash = 10000;
+        name = "Knoxville";
+        day = 1;              
+        mood = 0.5; 
+      }    
 
       // print board with each block's display string 
       void print() const
@@ -103,7 +111,7 @@ class city
       // print city stats (board size, population...)
       void stats() const
       {
-        cout << "Total Population: " << totalPop << "     Happiness: " << happiness << "     Money: " << cash << endl;
+        cout << "Day: " << day << "   Total Population: " << totalPop << "     Happiness: " << mood << "     Money: " << cash << endl;
         
       }        
 
@@ -114,28 +122,91 @@ class city
       }
 
       // save board to a file, TODO: need to decide on formatting
-      void save() const
+      void save(string s) const
       {
-        cout << "Not saved! Not implemented yet!\n";
+        size_t i, j;
+        ofstream fout;
+        fout.open(s);
+        
+        cout << "Saving " << name << " to " << s << "..." << endl;
 
+        fout << name << endl;
+        fout << totalPop << " " << day << " " << cash << " " << mood << endl;
+        fout << board.size() << " " << board[0].size() << endl;
+        for(i = 0; i < board.size(); i++){
+            for(j = 0; j < board[1].size(); j++){
+                fout << board[i][j].display << " " << board[i][j].pop << " " << board[i][j].bType << " ";
+            }
+            fout << endl;
+        }
       }
 
       void load(string s)
       {
-        cout << "Not loaded! Not implemented yet!\n";
+        size_t i, j, ini, inj;
+        int pop;
+        string display, bType;
+        block *b;
+        ifstream fin;
+        if(!empty()) reset();
+        fin.open(s);
+
+        getline(fin, name);
+        cout << "Loading " << name << "..." << endl;
+        fin >> totalPop >> day >> cash >> mood;
+        fin >> ini >> inj;
+        board.resize(ini);
+        for(i = 0; i < ini; i++){
+            for(j = 0; j < inj; j++){
+                b = new block;
+                board[i].push_back(*b);
+            }
+        }
+
+        for(i = 0; i < ini; i++){
+            for(j = 0; j < inj; j++){
+               fin >> display >> pop >> bType;
+               board[i][j].display = display;
+               board[i][j].pop = pop;
+               board[i][j]. bType = bType;
+            }
+        }
+        cout << "Loaded!\n";
+      }
+
+      void advance(int){
+        day++;
+        /*
+        algorithm to update population and such goes here, growth probably based on happiness
+        population increases -> happiness decays without intervention -> eventually stablizes/decreases
+        no idea how to practically implement this
+        */
       }
 
         // TODO:  add more
 
-        // bool edit(char c) to change a tile?
+        // bool edit(char c) to change a tile? t/f if allowed
 
       // helpers
+      bool empty() const
+      {
+        // return true iff every tile is '.'
+        size_t i, j;
+        if(board.size() == 0) return true;
+        for(i = 0; i < board.size(); i++){
+            for(j = 0; j < board[i].size(); j++){
+                if(board[i][j].display != ".") return false;
+            }
+        }
+        return true;
+      }    
+
       int getPop() const{return totalPop;}
       int getCash() const{return cash;}
       string getName() const{return name;}
       void setCash(int c){cash = c;}
       void setName(string s){name = s;}
-      void setHappiness(int c){happiness += c;}
+      void updateMood(int c){mood += c;}
 
 
     protected:
@@ -145,7 +216,7 @@ class city
       int cash = 10000;
       string name = "Knoxville";
       int day = 1;               // each action will advance day by one (not checking info)
-      int happiness = 0.5;       // [0,1] percentage happiness of city
+      double mood = 0.5;       // [0,1] percentage happiness of city
 
 };
 
@@ -153,7 +224,7 @@ int main(int argc, char *argv[])
 {
     city yours;
     char input, ci;
-    string name;
+    string name, file;
     int i, j;
     bool play;
     play = 0;
@@ -202,8 +273,9 @@ int main(int argc, char *argv[])
 
                 // load file
                 case 'l':
-                    cin >> name;
-                    yours.load(name);
+                    cin >> file;
+                    yours.load(file);
+                    name = yours.getName();
                     play = 1;
                 break;
 
@@ -220,9 +292,12 @@ int main(int argc, char *argv[])
     }
     // "./volcity load <file> case" 
     else if(argc == 3 && (string)argv[1] == "load"){
-        cout << "Not loaded! Not implemented yet!\n";
-        return -1;
+        yours.load((string)argv[2]);
+        name = yours.getName();
+        play = 1;
+        // TODO: known error, asks for extra cin for no reason when loading like this
     }
+
     else{
         cerr << "Usage: './volcity' or './volcity load [FILENAME]\n";
     }
@@ -253,10 +328,12 @@ int main(int argc, char *argv[])
             break;
 
             case 's':
-                yours.save();
+                cout << "Name save file: ";
+                cin >> file;
+                yours.save(file);
             break;
 
-            // likely not needed, board will only update after certain actions like build/wait
+            // likely not needed, board will only update (and print) after certain actions like build/wait
             case 'p':
                 yours.print();
             break;
@@ -278,6 +355,8 @@ int main(int argc, char *argv[])
             // "wait" a certain amount of time for the city to develop
             case 'w':
                 //TODO:
+                cin >> i;
+                yours.advance(i);
                 yours.print();
             break;
 

@@ -1,8 +1,8 @@
 /*
 main.cpp
-11/8/26
-this version by Jeremiah Cummings
-This is the main user interface for Volcity. Includes class for the city.
+11/21/26
+Latest update: building/destroying tiles
+Most of the work to be done is in the advance function
 */
 
 #include <iostream>
@@ -14,6 +14,7 @@ This is the main user interface for Volcity. Includes class for the city.
 #include <fstream>
 #include <algorithm>
 #include <cmath>
+#include <map>
 
 using namespace std;
 
@@ -22,12 +23,12 @@ class city
     // each cell of the board is a block
     struct block
     {
-      // default empty block, "." with population 0
-      string display = ".";
-      int pop = 0;
-    // bType is the internal building type so we aren't relying on the display string
-    // may change to a char and lookup on a map later
-      string bType = "Empty";
+      string display = ".";            // what this block displays when printing
+      string bType = "Empty";          // building type
+      int pop = 0;                     // current population
+      int maxPop = 0;                  // max possible population
+      int level = 0;                   // can only upgrade to level 1 from level 0, 1-> 2....
+      int vPos = 0;                    // internal building type for switch statements
     };
 
     public:
@@ -38,8 +39,11 @@ class city
       {
         size_t i, j;
         block *b;
-        // fill in with empty block structs
-        // SET TEMP 5x5 BOARD FOR TESTING:
+
+        // initialize block types map for copying later
+        initBlockTypes();
+
+        // fill in with empty block structs, default size 5x5
         board.resize(5);
         for(i = 0; i < 5; i++){
             for(j = 0; j < 5; j++){
@@ -47,38 +51,94 @@ class city
                 board[i].push_back(*b);
             }
         }
-        board[0][0].bType = "TestHouse";
-        board[0][0].display = "/\\";
-        board[0][0].pop = 999;
-        board[0][1].bType = "TestHosp";
-        board[0][1].display = "=H=";
+
+        // set tiles by copying from vector
+        board[0][0] = types[2];
+        maxPop += 10;
+        board[0][0].pop = 10;
+        totalPop += 10;
+        board[0][1] = types[3];
+        maxPop += 10;
+        board[0][2] = types[5];
+        maxPop += 200;
 
         for(i = 0; i < board.size(); i++){
-            board[1][i].display = "=====";
-            board[1][i].bType = "TestRoad";
+            board[1][i] = types[1];
         }
-
+        
       }
 
       // destroying blocks as they were initialized with pointers
+      // TODO: check with valgrind before submission
       ~city()
       {
+        map<string,block>::iterator mit;
         size_t i, j;
         for(i = 0; i < board.size(); i++){
             for(j = 0; j < board[i].size(); j++) delete &board[i][j];
         }
+        //for(mit = types.begin(); mit != types.end(); mit++) delete &mit;
       }
 
+      // initialize block types - would be a nice thing to load from a file in the future
+      void initBlockTypes()
+      {
+        if(!types.empty()) return;
+
+        block *b; 
+        b = new block;
+        b->bType = "Empty";
+        types.push_back(*b);
+
+        b = new block;
+        b->bType = "Road";
+        b->vPos = 1;
+        b->display = "=====";
+        types.push_back(*b);
+        
+        b = new block;
+        b->bType = "House";
+        b->display = "[:]";
+        b->vPos = 2;
+        b->maxPop = 10;
+        types.push_back(*b);
+
+        b = new block;
+        b->bType = "Townhouse";
+        b->display = "[::]";
+        b->vPos = 3;
+        b->maxPop = 100;
+        b->level = 1;
+        types.push_back(*b);
+
+        b = new block;
+        b->bType = "Apartment";
+        b->display = "[:::]";
+        b->vPos = 4;
+        b->maxPop = 200;
+        b->level = 2;
+        types.push_back(*b);
+
+        b = new block;
+        b->bType = "Hospital";
+        b->display = "=H=";
+        b->vPos = 5;
+        b->maxPop = 200;
+        b->level = 1;
+        types.push_back(*b);
+        
+        b = new block;
+        b->bType = "Park";
+        b->display = "{+}";
+        b->vPos = 6;
+        b->maxPop = 5;
+        b->level = 1;
+        types.push_back(*b);
+      }
+      
       void reset()
       {
-        size_t i, j;
-
-        /*
-        for(i = 0; i < board.size(); i++){
-            for(j = 0; j < board[i].size(); j++) delete &board[i][j];
-        } 
-        */
-
+        // resizing like this may cause memory leak, check w/ valgrind later
         board.resize(0);
         totalPop = 1;          
         cash = 10000;
@@ -97,7 +157,7 @@ class city
         for(i = 0; i < board.size(); i++) printf("%5d", i);
         cout << endl;
         for(i = 0; i < board.size(); i++) {
-            // a-z then just numbers. aa, ab... would be cooler, TODO: later
+            // a-z then just numbers. aa, ab... would be cooler, maybe later
             if(i <= 26) printf("%c ", i + 'a');
             else printf("%d ", i - 'a');
             // width of 5 for each string, change if needed
@@ -107,23 +167,27 @@ class city
             }
             cout << endl;
         }
-        
+        stats();
       }        
 
       // print city stats (board size, population...)
       void stats() const
       {
-        cout << "Day: " << day << "   Total Population: " << totalPop << "     Happiness: " << mood << "     Money: " << cash << endl;
+        cout << "Day: " << day << "   Total Population: " << totalPop << "     Happiness: " << (mood * 100) << "%     Money: " << cash << endl;
         
       }        
 
-      // print information about tile(i,j) TODO:
+      // print information about tile(i,j)
       void info(int i, int j)
       {
-        cout << board[i][j].bType << ", population: " << board[i][j].pop << endl;
+        if(i < 0 || j < 0 || i >= board.size() || j >= board.size()){
+            cerr << "Out of bounds!\n";
+            return;
+        }
+        cout << board[i][j].bType << ", population: " << board[i][j].pop << "/" << board[i][j].maxPop << endl;
       }
 
-      // save board to a file, TODO: need to decide on formatting
+      // save board to a file
       void save(string s) const
       {
         size_t i, j;
@@ -136,18 +200,18 @@ class city
         fout << totalPop << " " << day << " " << cash << " " << mood << endl;
         fout << board.size() << " " << board[0].size() << endl;
         for(i = 0; i < board.size(); i++){
-            for(j = 0; j < board[1].size(); j++){
-                fout << board[i][j].display << " " << board[i][j].pop << " " << board[i][j].bType << " ";
+            for(j = 0; j < board[i].size(); j++){
+                fout << board[i][j].vPos << " " << board[i][j].pop << " ";
             }
-            fout << endl;
+            if(i < board.size() -1) fout << endl;
         }
       }
 
       void load(string s)
       {
         size_t i, j, ini, inj;
-        int pop;
-        string display, bType;
+        int pop, vPos;
+        string display;
         block *b;
         ifstream fin;
         if(!empty()) reset();
@@ -167,17 +231,17 @@ class city
 
         for(i = 0; i < ini; i++){
             for(j = 0; j < inj; j++){
-               fin >> display >> pop >> bType;
-               board[i][j].display = display;
-               board[i][j].pop = pop;
-               board[i][j]. bType = bType;
+                fin >> vPos >> pop;
+                board[i][j] = types[vPos];
+                board[i][j].pop = pop;
             }
         }
         cout << "Loaded!\n";
       }
 
 	  // added primitive population growth
-      void advance(int waitTime){
+      void advance(int waitTime)
+      {
         day += waitTime;
 		int stable = 0;
 		
@@ -191,17 +255,139 @@ class city
 			}
 		}
 
-		totalPop = totalPop + growth;
-        /*
-        algorithm to update population and such goes here, growth probably based on happiness
-        population increases -> happiness decays without intervention -> eventually stablizes/decreases
-        no idea how to practically implement this
+		if((totalPop + growth) <= maxPop) totalPop = totalPop + growth;
+
+        cash += 100 * ((double)totalPop/10); // allowance of $100 per 10 people per day, for now
+
+
+        /*TODO:: 
+        1. check if the post-growth pop. exceeds city's maxPop  (DONE)
+        2. assign the growing population to the current buildings
+            this seems like a network flow problem but thats complicated, can just scan the whole board linearly
+        3. update mood depending on difference between totalPop and maxPop
+        4. run BFS in this advance section to check for road connections too
         */
       }
 
-        // TODO:  add more
+      // build/upgrade
+      void edit(char ic, int j)
+      {
+        int i, pop;
+        char input;
+        i = ic - 'a';
+        if(i < 0 || j < 0 || i >= board.size() || j >= board.size()){
+            cerr << "Out of bounds!\n";
+            return;
+        }
 
-        // bool edit(char c) to change a tile? t/f if allowed
+        // only allowing house upgrades and empty building for now
+        switch(board[i][j].vPos){
+            case 0:
+                cout << "What would you like to build?\n b - house, $100   h - hospital, $1000   p - park, $100   r - road, $50" << endl;
+                cin >> input;                
+                switch(input){
+                    case 'b':
+                        board[i][j] = types[2];
+                        maxPop += board[i][j].maxPop;
+                        cash -= 100;
+                    break;
+
+                    case 'h':
+                        board[i][j] = types[5];
+                        maxPop += board[i][j].maxPop;
+                        cash -= 1000;
+                    break;
+
+                    case 'p':
+                        board[i][j] = types[6];
+                        maxPop += board[i][j].maxPop;
+                        cash -= 100;
+                    break;
+
+                    case 'r':
+                        board[i][j] = types[1];
+                        cash -= 50;
+                    break;
+                }
+                
+            break;
+            case 2:
+                cout << "Upgrade house to townhouse for $200? y/n" << endl;
+                cin >> input;
+                if(input != 'y') break;
+                pop = board[i][j].pop;
+                maxPop -= board[i][j].maxPop;
+                board[i][j] = types[3];
+                board[i][j].pop = pop;
+                maxPop += board[i][j].maxPop;
+                cash -= 200;
+            break;
+            case 3:
+                cout << "Upgrade townhouse to apartment for $1000? y/n" << endl;
+                cin >> input;
+                if(input != 'y') break;
+                pop = board[i][j].pop;
+                maxPop -= board[i][j].maxPop;
+                board[i][j] = types[4];
+                board[i][j].pop = pop;
+                maxPop += board[i][j].maxPop;
+                cash -= 1000;
+            break;
+            default:
+                cerr << "Invalid operation!\n";
+        }
+        advance(1);
+        print();
+        return;
+      }
+
+      void destroy(char ic, int j)
+      {
+        int i;
+        char input;
+        i = ic - 'a';
+        if(i < 0 || j < 0 || i >= board.size() || j >= board.size()){
+            cerr << "Out of bounds!\n";
+            return;
+        }
+        cout << "Destroy " << board[i][j].bType << "? y/n" << endl;
+        cin >> input;
+        if(input != 'y') return;
+        if(totalPop > board[i][j].pop) totalPop -= board[i][j].pop;
+        else totalPop = 1;
+        board[i][j] = types[0];
+
+        advance(1);
+        print();
+        return;
+      }
+
+      // 'buy new land'
+      void expand()
+      {
+        int i, size;
+        char input;
+        block *b;
+        cout << "Buy new land for $1000? y/n" << endl;
+        cin >> input;
+        if(input != 'y') return;
+        size = board.size();
+        board.resize(size + 1);
+        
+        for(i = 0; i < size; i++){
+            b = new block;
+            board[size].push_back(*b);
+        }
+
+        for(i = 0; i < size + 1; i++){
+            b = new block;
+            board[i].push_back(*b);
+        }
+        cash -= 1000;
+        print();
+      }
+
+
 
       // helpers
       bool empty() const
@@ -211,7 +397,7 @@ class city
         if(board.size() == 0) return true;
         for(i = 0; i < board.size(); i++){
             for(j = 0; j < board[i].size(); j++){
-                if(board[i][j].display != ".") return false;
+                if(board[i][j].vPos != 0) return false;
             }
         }
         return true;
@@ -226,13 +412,15 @@ class city
 
 
     protected:
-      vector<vector<block> > board;
+      vector<vector<block> > board;   // hold block structs for city
+      vector<block> types;            // define basic block types with default values to copy from
       // default starting values
-      int totalPop = 1;          // you!
+      int totalPop = 1;               // you!
+      int maxPop = 0;
       int cash = 10000;
       string name = "Knoxville";
-      int day = 1;               // each action will advance day by one (not checking info)
-      double mood = 0.5;       // [0,1] percentage happiness of city
+      int day = 1;                    // each action will advance day by one (not checking info)
+      double mood = 0.5;              // [0,1] percentage happiness of city
 
 };
 
@@ -333,14 +521,12 @@ int main(int argc, char *argv[])
         cout << name << "> ";
         cin >> input;
 
+        // user interface
         switch(input){
-        /*
-        here: options like build i j, etc.
-        focusing only on the basics for now
-        */
+            // list commands
             case 'h':
-                //TODO: list commands
-                cout << "'h' - Help   's' - Save   't' - Total stats   'i [i] [j]' - Info about tile (i,j)   'q' - Quit\n";
+                cout << "'h' - Help   's' - Save   'q' - Quit   't' - Total stats   'i [i] [j]' - Info about tile (i,j)   'b [i] [j]' - Edit tile (i,j)"   
+                << "'d' - Destroy tile (i,j)    'e' - Expand board" << endl;
             break;
 
             case 's':
@@ -357,10 +543,6 @@ int main(int argc, char *argv[])
             // return info about tile board[ci - 'a'][j] ('a' corresponds to 0, 'b' --> 1...)
             case 'i':
                 cin >> ci >> j;
-                if(ci - 'a' < 0 || j < 0){
-                    cerr << "Out of bounds!\n";
-                    break;
-                }
                 yours.info(ci - 'a', j);
             break;
 
@@ -370,10 +552,24 @@ int main(int argc, char *argv[])
 
             // "wait" a certain amount of time for the city to develop
             case 'w':
-                //TODO:
-                cin >> i;
-                yours.advance(i);
+                // allow only wait 1 day for now
+                //cin >> i;
+                yours.advance(1);
                 yours.print();
+            break;
+
+            case 'b':
+                cin >> ci >> j;
+                yours.edit(ci, j);
+            break;
+
+            case 'd':
+                cin >> ci >> j;
+                yours.destroy(ci, j);
+            break;
+            
+            case 'e':
+                yours.expand();
             break;
 
             case 'q':

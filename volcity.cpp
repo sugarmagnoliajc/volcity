@@ -173,7 +173,7 @@ class city
       // print city stats (board size, population...)
       void stats() const
       {
-        cout << "Day: " << day << "   Total Population: " << totalPop << "     Happiness: " << (mood * 100) << "%     Money: " << cash << endl;
+        cout << "Day: " << day << "    Total Population: " << totalPop << "/" << maxPop << "     Happiness: " << (mood * 100) << "%     Money: " << cash << endl;
         
       }        
 
@@ -233,6 +233,7 @@ class city
             for(j = 0; j < inj; j++){
                 fin >> vPos >> pop;
                 board[i][j] = types[vPos];
+                maxPop += types[vPos].maxPop;
                 board[i][j].pop = pop;
             }
         }
@@ -264,7 +265,7 @@ class city
         1. check if the post-growth pop. exceeds city's maxPop  (DONE)
         2. assign the growing population to the current buildings
             this seems like a network flow problem but thats complicated, can just scan the whole board linearly
-        3. update mood depending on difference between totalPop and maxPop
+        3. update mood depending on difference between totalPop and maxPop, and nearby parks
         4. run BFS in this advance section to check for road connections too
         */
       }
@@ -355,6 +356,7 @@ class city
         if(input != 'y') return;
         if(totalPop > board[i][j].pop) totalPop -= board[i][j].pop;
         else totalPop = 1;
+        maxPop -= board[i][j].maxPop;
         board[i][j] = types[0];
 
         advance(1);
@@ -416,7 +418,7 @@ class city
       vector<block> types;            // define basic block types with default values to copy from
       // default starting values
       int totalPop = 1;               // you!
-      int maxPop = 0;
+      int maxPop = 0;                 // cannot exceed total maxPop of individual blocks, update when adding/removing blocks
       int cash = 10000;
       string name = "Knoxville";
       int day = 1;                    // each action will advance day by one (not checking info)

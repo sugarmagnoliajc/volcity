@@ -134,6 +134,7 @@ class city
         b->maxPop = 5;
         b->level = 1;
         types.push_back(*b);
+
       }
       
       void reset()
@@ -233,11 +234,16 @@ class city
             for(j = 0; j < inj; j++){
                 fin >> vPos >> pop;
                 board[i][j] = types[vPos];
+                if(vPos == 1){
+                    if(i - 1 >= 0) if(board[i - 1][j].vPos == 1) board[i][j].display = "||";
+                    if(i + 1 < board.size()) if(board[i + 1][j].vPos == 1) board[i][j].display = "||";
+                }
                 maxPop += types[vPos].maxPop;
                 board[i][j].pop = pop;
             }
         }
         cout << "Loaded!\n";
+        fin.close();
       }
 
 	  // added primitive population growth
@@ -307,10 +313,17 @@ class city
 
                     case 'r':
                         board[i][j] = types[1];
+                        // change display tile if road is connected vertically
+                        if(i - 1 >= 0) if(board[i - 1][j].vPos == 1) board[i][j].display = "||";
+                        if(i + 1 < board.size()) if(board[i + 1][j].vPos == 1) board[i][j].display = "||";
                         cash -= 50;
                     break;
                 }
                 
+            break;
+            case 1:
+                if(board[i][j].display == "=====") board[i][j].display = "||";
+                else if(board[i][j].display == "||") board[i][j].display = "=====";
             break;
             case 2:
                 cout << "Upgrade house to townhouse for $200? y/n" << endl;
@@ -430,9 +443,11 @@ int main(int argc, char *argv[])
 {
     city yours;
     char input, ci;
-    string name, file;
+    string name, file, strinput;
     int i, j;
     bool play;
+    bool skipintro;
+    skipintro = 0;
     play = 0;
  
     
@@ -483,6 +498,7 @@ int main(int argc, char *argv[])
                     yours.load(file);
                     name = yours.getName();
                     play = 1;
+                    skipintro = 1;
                 break;
 
                 // quit program
@@ -501,6 +517,7 @@ int main(int argc, char *argv[])
         yours.load((string)argv[2]);
         name = yours.getName();
         play = 1;
+        skipintro = 1;
         // TODO: known error, asks for extra cin for no reason when loading like this
     }
 
@@ -514,12 +531,25 @@ int main(int argc, char *argv[])
     } 
 
     // proceed here once play flag is 1, another input switch statement like above
+
+    // Output a story as suggested in lab. Maybe add a tutorial later.
+    if(skipintro == 0){
+        cout << "Mayor of " << name << ":" << endl;
+        cout << "   Welcome to the dying city of " << name << "! We've hired you, a world-renowned city planner, to try and revive it.\n";
+        cout << "   Are you up to the task?\n";
+        cout << name << "> ";
+        cin >> strinput;
+        if(strinput == "yes" || strinput == "y") cout << "   Thank you! Here's a map of the city. Good luck!" << endl;
+        else if(strinput == "no" || strinput == "n") cout << "   Well, try anyway. Here's a map of the city." << endl;
+        else if (strinput == "maybe") cout << "   Be more confident in yourself! Here's a map of the city. Good luck!" << endl;
+        else cout << "   I didn't quite catch that, but here's a map of the city anyway. Good luck!" << endl;
+    }
     yours.print();
     cout << "Enter 'h' for a list of commands.\n";
 
     while(play == 1){
-        cin.clear();
-        cin.ignore();
+        
+        
         cout << name << "> ";
         cin >> input;
 
@@ -527,8 +557,8 @@ int main(int argc, char *argv[])
         switch(input){
             // list commands
             case 'h':
-                cout << "'h' - Help   's' - Save   'q' - Quit   't' - Total stats   'i [i] [j]' - Info about tile (i,j)   'b [i] [j]' - Edit tile (i,j)"   
-                << "'d' - Destroy tile (i,j)    'e' - Expand board" << endl;
+                cout << "'h' - Help   's' - Save   'q' - Quit   't' - Total stats   'i i j' - Info about tile (i,j)   'b i j' - Edit tile (i,j)"   
+                << "    'd' i j - Destroy tile (i,j)    'e' - Expand board" << endl;
             break;
 
             case 's':
